@@ -1,0 +1,39 @@
+name: Publicar app Sete de Setembro
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Copiar o app
+        run: |
+          mkdir site
+          for f in index.html sw.js manifest.webmanifest icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png favicon.png; do
+            curl -fsSL -o "site/$f" "https://visionary-liger-700c94.netlify.app/$f"
+          done
+          python3 - <<'EOF'
+          m = '''<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://portocomunicacao.app.n8n.cloud; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+          <meta name="referrer" content="no-referrer">'''
+          p = 'site/index.html'
+          s = open(p, encoding='utf-8').read()
+          s = s.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n' + m, 1)
+          open(p, 'w', encoding='utf-8').write(s)
+          EOF
+          ls -la site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
