@@ -17,20 +17,126 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - name: Copiar o app
+      - uses: actions/checkout@v4
+      - name: Montar a tela de entrada
         run: |
           mkdir site
-          for f in index.html sw.js manifest.webmanifest icon-192.png icon-512.png icon-maskable-512.png apple-touch-icon.png favicon.png; do
-            curl -fsSL -o "site/$f" "https://visionary-liger-700c94.netlify.app/$f"
-          done
-          python3 - <<'EOF'
-          m = '''<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://portocomunicacao.app.n8n.cloud; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
-          <meta name="referrer" content="no-referrer">'''
-          p = 'site/index.html'
-          s = open(p, encoding='utf-8').read()
-          s = s.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n' + m, 1)
-          open(p, 'w', encoding='utf-8').write(s)
-          EOF
+          cp *.png site/
+          cat > site/index.html <<'FIM_INDEX'
+          <!doctype html>
+          <html lang="pt-BR">
+          <head>
+          <meta charset="utf-8">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://portocomunicacao.app.n8n.cloud; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+          <meta name="referrer" content="no-referrer">
+          <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+          <meta name="theme-color" content="#0B4D26">
+          <meta name="robots" content="noindex,nofollow">
+          <link rel="manifest" href="manifest.webmanifest">
+          <link rel="icon" href="favicon.png">
+          <link rel="apple-touch-icon" href="apple-touch-icon.png">
+          <title>Sete de Setembro</title>
+          <style>
+          *{box-sizing:border-box}
+          body{margin:0;min-height:100vh;background:#0B4D26;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#17251c;display:flex;align-items:center;justify-content:center;padding:16px}
+          .card{background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);width:min(380px,100%);padding:28px 24px;display:flex;flex-direction:column;gap:14px;text-align:center}
+          .card img{width:96px;height:96px;margin:0 auto;object-fit:contain}
+          h1{margin:0;font-size:24px;letter-spacing:.04em;text-transform:uppercase;color:#0B4D26}
+          p{margin:0;color:#56655b;font-size:14px}
+          label{display:block;text-align:left;font-size:13px;font-weight:600;margin-bottom:4px}
+          input{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #c9d4cc;border-radius:10px}
+          input:focus{outline:2px solid #1B8A3A;border-color:#1B8A3A}
+          button{font:inherit;font-weight:700;font-size:16px;padding:12px;border:0;border-radius:10px;background:#1B8A3A;color:#fff;cursor:pointer}
+          button:disabled{opacity:.6}
+          .err{color:#b42318;font-size:14px;min-height:1em}
+          [hidden]{display:none!important}
+          </style>
+          </head>
+          <body>
+          <form class="card" id="f" autocomplete="on" hidden>
+            <img src="icon-192.png" alt="Escudo do Sete de Setembro E.C.">
+            <h1>Sete de Setembro</h1>
+            <p>Entre com o usuário e a senha que o clube te passou</p>
+            <div><label for="u">Usuário</label><input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+            <div><label for="s">Senha</label><input id="s" type="password" autocomplete="current-password" required></div>
+            <div class="err" id="e" role="alert"></div>
+            <button id="b" type="submit">Entrar</button>
+            <p>Esqueceu a senha? Peça ao financeiro do clube para criar uma nova.</p>
+          </form>
+          <div class="card" id="c"><img src="icon-192.png" alt=""><p>Carregando…</p></div>
+          <script>
+          (function(){
+          "use strict";
+          var API="https://portocomunicacao.app.n8n.cloud/webhook/",SKEY="sete.sessao";
+          var f=document.getElementById("f"),c=document.getElementById("c"),u=document.getElementById("u"),s=document.getElementById("s"),e=document.getElementById("e"),b=document.getElementById("b");
+          function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(_){}return null;}
+          function post(p,body){return fetch(API+p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw new Error("servidor");return r.json();});}
+          function form(msg){c.hidden=true;f.hidden=false;e.textContent=msg||"";u.value=ls("sete.ultimoUsuario")||"";setTimeout(function(){(u.value?s:u).focus();},50);}
+          function abrir(tok){
+            return post("sete-app-codigo",{token:tok}).then(function(j){
+              if(j&&j.ok&&j.html){document.open();document.write(j.html);document.close();return true;}
+              if(j&&j.code==="sessao")ls(SKEY,null);
+              return false;
+            });
+          }
+          f.addEventListener("submit",function(ev){
+            ev.preventDefault();e.textContent="";
+            var usuario=u.value.trim().toLowerCase(),senha=s.value;
+            if(!usuario||!senha){e.textContent="Preencha usuário e senha.";return;}
+            b.disabled=true;b.textContent="Entrando…";
+            post("sete-app",{a:"login",usuario:usuario,senha:senha}).then(function(j){
+              if(!j||!j.ok){e.textContent=(j&&j.erro)||"Usuário ou senha incorretos.";s.select();return;}
+              ls(SKEY,j.token);ls("sete.ultimoUsuario",usuario);s.value="";
+              return abrir(j.token).then(function(ok){if(!ok)e.textContent="Não consegui abrir o app. Tente de novo.";});
+            }).catch(function(){e.textContent="Não consegui conectar. Confira a internet e tente de novo.";})
+            .then(function(){b.disabled=false;b.textContent="Entrar";});
+          });
+          var t=ls(SKEY);
+          if(t){abrir(t).then(function(ok){if(!ok)form();}).catch(function(){form("Sem conexão com o servidor. Confira a internet.");});}
+          else form();
+          if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
+          })();
+          </script>
+          </body>
+          </html>
+          FIM_INDEX
+          cat > site/sw.js <<'FIM_SW'
+          const C="sete-v15";const FILES=["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","apple-touch-icon.png","favicon.png"];
+          self.addEventListener("install",e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(FILES)));self.skipWaiting();});
+          self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))));self.clients.claim();});
+          self.addEventListener("fetch",e=>{const u=new URL(e.request.url);if(e.request.method!=="GET"||u.origin!==location.origin)return;
+           e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();caches.open(C).then(c=>c.put(e.request,cp));return r;}).catch(()=>caches.match(e.request).then(r=>r||caches.match("index.html"))));});
+          FIM_SW
+          cat > site/manifest.webmanifest <<'FIM_MF'
+          {
+           "name": "Sete de Setembro E.C.",
+           "short_name": "Sete de Setembro",
+           "start_url": "./",
+           "scope": "./",
+           "display": "standalone",
+           "background_color": "#0B4D26",
+           "theme_color": "#0B4D26",
+           "lang": "pt-BR",
+           "icons": [
+            {
+             "src": "icon-192.png",
+             "sizes": "192x192",
+             "type": "image/png"
+            },
+            {
+             "src": "icon-512.png",
+             "sizes": "512x512",
+             "type": "image/png"
+            },
+            {
+             "src": "icon-maskable-512.png",
+             "sizes": "512x512",
+             "type": "image/png",
+             "purpose": "maskable"
+            }
+           ]
+          }
+          FIM_MF
           ls -la site
       - uses: actions/upload-pages-artifact@v3
         with:
